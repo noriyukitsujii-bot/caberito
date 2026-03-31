@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>カベリート 人事評価制度ポータル</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;background:#fff;color:#111;font-size:13px;line-height:1.5}
+.header{border-bottom:2px solid #111;padding:16px;text-align:center}
+.header h1{font-size:18px;font-weight:700;letter-spacing:2px}
+.header p{font-size:11px;color:#666;margin-top:4px}
+.main{max-width:960px;margin:0 auto;padding:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+.box{border:1px solid #222;padding:10px 14px;cursor:pointer;background:#fff;font-weight:400;font-size:13px;line-height:1.4;transition:background 0.15s}
+.box:hover{background:#f5f5f5}
+.box-title{font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+.box-content{margin-top:8px;font-size:12px}
+.box-content .item{border:1px solid #ddd;padding:8px 10px;margin-top:4px;font-size:12px;background:#fafafa}
+.section{margin-bottom:2px}
+.grade-box{border:1px solid #ccc;padding:8px 12px;margin-top:4px;font-size:12px}
+.grade-box h4{font-size:13px;font-weight:700;margin-bottom:4px}
+.grade-box .label{font-weight:600;display:inline-block;min-width:80px;color:#444}
+.salary-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+.salary-table th,.salary-table td{border:1px solid #222;padding:4px 6px;text-align:center}
+.salary-table th{background:#f0f0f0;font-weight:700}
+.curriculum-step{border:1px solid #ddd;padding:6px 10px;margin-top:2px;font-size:12px;background:#fff}
+.qa-section{margin-top:12px}
+.qa-input-wrap{display:flex;gap:6px;margin-bottom:12px}
+.qa-input{flex:1;padding:8px 10px;border:1px solid #222;font-size:13px;outline:none}
+.qa-btn{padding:8px 16px;border:1px solid #222;background:#222;color:#fff;font-size:13px;cursor:pointer}
+.qa-answer{border:1px solid #222;padding:12px;margin-top:8px;font-size:12px;line-height:1.6}
+.qa-q{border:1px solid #ddd;padding:8px 10px;margin-top:4px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between}
+.qa-q:hover{background:#f5f5f5}
+
+/* Spreadsheet viewer */
+.ss-login{border:1px solid #222;padding:20px;text-align:center;margin-top:8px}
+.ss-login input{padding:8px 10px;border:1px solid #222;font-size:13px;outline:none;width:180px}
+.ss-login button{padding:8px 16px;border:1px solid #222;background:#222;color:#fff;font-size:13px;cursor:pointer;margin-left:6px}
+.ss-error{color:#c00;font-size:11px;margin-top:8px;display:none}
+.ss-tabs{display:flex;flex-wrap:wrap;gap:2px;margin:8px 0;overflow-x:auto}
+.ss-tab{padding:4px 10px;border:1px solid #ccc;font-size:10px;cursor:pointer;white-space:nowrap;background:#f5f5f5}
+.ss-tab.active{background:#222;color:#fff;border-color:#222}
+.ss-table-wrap{overflow-x:auto;max-height:70vh;border:1px solid #222}
+.ss-table{border-collapse:collapse;font-size:11px;width:100%}
+.ss-table th,.ss-table td{border:1px solid #ddd;padding:3px 6px;text-align:left;min-width:60px;max-width:250px;word-break:break-all}
+.ss-table th{background:#f0f0f0;font-weight:700;position:sticky;top:0;z-index:1}
+.ss-table tr:nth-child(even){background:#fafafa}
+.photo-cell{min-height:50px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;background:#fafafa}
+.photo-cell img{max-width:100%;max-height:120px}
+.photo-cell .ph-label{color:#999;font-size:9px}
+.photo-cell input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.save-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f9f9f9;border:1px solid #222;margin-top:8px}
+.save-bar button{padding:6px 14px;border:1px solid #222;background:#222;color:#fff;font-size:12px;cursor:pointer;margin-left:6px}
+.full-width{grid-column:1/-1}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>カベリート</h1>
+  <p>人事評価制度・役割定義表 ｜ 2026年3月29日施行</p>
+</div>
+
+<div class="main" id="app"></div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+
+const GRADES = {
+  "S5 店長（管理職格）": {
+    grade:"S5", stage:"管理職格", role:"店長",
+    responsibility:"店舗運営責任を負う管理者。予算管理・部下育成・コンプライアンス徹底",
+    promotion:"累計4ポイント獲得で昇格 / 累計4ポイントマイナスで降格。上記条件達成後、課長面談クリアで昇格。",
+    duties:[
+      "店舗予算の把握、目標達成への指導が出来る",
+      "店舗の部下育成指導が出来る",
+      "担当店舗において問題等の対処・改善・業務の質を向上できる",
+      "担当店舗のコスト管理が出来る",
+      "コンプライアンスの把握・指導・徹底が出来る",
+      "オーナーの意向(コンセプト)をよく理解して下のスタッフに共有／徹底させる",
+      "週初めの朝礼で目標に対する進捗管理を行う",
+      "計画を立てる日程のきっかけを言い出す。判断基準となるデータを元に原案を作成して提供する",
+      "営業面以外がスムーズに、効率的に運営される様に付帯要素を整える",
+      "スタッフが働きやすく、やる気の出る環境をルール化し、整える",
+      "お客様が快適に過ごせる環境を整える",
+      "効率が良い仕事が出来るようにする",
+      "公式教材「理念と経営」の提出状況を管理する",
+      "公式教材「13の徳目」記入状況を管理する",
+      "店舗スタッフをコンセプトが発揮（実践）出来る人材に育てる",
+      "店の認識・イメージアップを図る。外に向けてサロンをアピールできる要素を構築する",
+      "サロンコンセプトがお客様にどれほど受け入れられているのかを知って、その反応に対応していく",
+      "やる気の出る環境を準備する",
+      "細かいフォローにより、常にスタッフの状態を把握しておく"
+    ]
+  },
+  "S4 メインスタイリスト（一般格）": {
+    grade:"S4", stage:"一般格", role:"メインスタイリスト",
+    responsibility:"店舗、個人両方の売り上げ目標を達成する",
+    promotion:"累計4ポイント獲得で昇格 / 累計4ポイントマイナスで降格。上記条件達成後、課長面談クリアで昇格。",
+    duties:[
+      "店舗の目標達成に向けて、的確なメンバーの指導とプロセス管理が出来る",
+      "担当しているお客様をアシスタントに任せる際に適切な説明、指示ができる",
+      "担当のお客様にプラスメニューの提案ホームケア商品のおすすめの徹底できる",
+      "インナーフォルムアートの技法をマスターしお客様から説明、理解を得る",
+      "担当アシスタント業務について安心して任せることが出来る",
+      "例外事項に臨機応変な対応が出来る",
+      "担当業務の課題を発見し、改善に向けた具体案の提案が出来る",
+      "売上・個人目標に対する数字を常に把握し意識している"
+    ]
+  },
+  "S3 Jr.スタイリスト（一般格）": {
+    grade:"S3", stage:"一般格", role:"Jr.スタイリスト",
+    responsibility:"メインスタイリストをアシストし、高校生までのカットに入客",
+    promotion:"累計4ポイント獲得で昇格",
+    duties:[
+      "アシスタント業務の遂行",
+      "アシスト業務が潤滑に行われているかの管理ができる",
+      "売上・個人目標に対する数字を常に把握し意識している",
+      "アシスタントへのアドバイスが出来る"
+    ]
+  },
+  "S2 メインアシスタント（一般格）": {
+    grade:"S2", stage:"一般格", role:"メインアシスタント",
+    responsibility:"アシスタント業務が一人前",
+    promotion:"累計4ポイント獲得でS3に昇格",
+    duties:[
+      "アシスタント業務は責任を持ち行うことが出来る",
+      "困難な例外事項は、上司・先輩のサポートを受けながら処理出来る",
+      "自ら課題を発見し、上司の支援を受けながら改善・解決出来る",
+      "個人目標に対する数字を常に把握し意識している"
+    ]
+  },
+  "S1 Jr.アシスタント（一般格）": {
+    grade:"S1", stage:"一般格", role:"Jr.アシスタント",
+    responsibility:"指示業務の実行",
+    promotion:"累計4ポイント獲得でS2に昇格",
+    duties:[
+      "上司の指示を受け、確認しながら定型業務をこなす",
+      "報告・連絡・相談を適宜行える",
+      "業務に必要な基礎知識の習得に努める"
+    ]
+  }
+};
+
+const SALARY_REGULAR = {
+  title:"正社員 給与テーブル",
+  note:"基本給（役職手当含む）。変動ピッチ: 1ピッチ = 1,000円",
+  rows:[
+    {grade:"S1 Jr.アシスタント", base:"210,000円"},
+    {grade:"S2 メインアシスタント", base:"220,000円"},
+    {grade:"S3 Jr.スタイリスト", base:"230,000円"},
+    {grade:"S4 メインスタイリスト", base:"240,000円"},
+    {grade:"S5 店長", base:"260,000円〜"}
+  ]
+};
+
+const SALARY_PART = {
+  title:"パート 時給テーブル（週出勤日数別）",
+  note:"変動ピッチ: 1ピッチ = 10円",
+  headers:["等級","週1","週2","週3","週4","週5"],
+  rows:[
+    ["S1 Jr.アシスタント","1,100円","1,125円","1,150円","1,175円","1,200円"],
+    ["S2 メインアシスタント","1,150円","1,175円","1,200円","1,225円","1,250円"],
+    ["S3 Jr.スタイリスト","1,200円","1,225円","1,250円","1,275円","1,300円"],
+    ["S4 メインスタイリスト","1,250円","1,275円","1,300円","1,325円","1,350円"]
+  ]
+};
+
+const PITCH_TABLE = {
+  title:"変動ピッチ表",
+  note:"評価点60点が基準（変動なし）。正社員1ピッチ=1,000円、パート1ピッチ=10円。小数点以下切り捨て。",
+  rows:[
+    {range:"90〜100点", pitch:"+4ピッチ"},
+    {range:"80〜89点", pitch:"+3ピッチ"},
+    {range:"70〜79点", pitch:"+2ピッチ"},
+    {range:"60〜69点", pitch:"±0（基準）"},
+    {range:"50〜59点", pitch:"-1ピッチ"},
+    {range:"40〜49点", pitch:"-2ピッチ"},
+    {range:"30〜39点", pitch:"-3ピッチ"},
+    {range:"0〜29点", pitch:"-4ピッチ"}
+  ]
+};
+
+const CURRICULA = {
+  ladies:{
+    title:"レディースカリキュラム",
+    steps:["①ステップ1 シャンプー＆ブロー","②ステップ2 カラー塗布","③ステップ アイロンセット 巻き髪・ストレート",
+      "③ステップ3-A グレイカラー、ヘナ","③ステップ3-B ファッションカラー ノンジアミンカラー",
+      "⑩ステップ3-C ホイルワーク メッシュ・ウィービング・スライシング","⑪ステップ3-D ブリーチワーク",
+      "⑬ステップ4-A オールパーパス ビッグロット〜豆ロット","⑭ステップ4-B スパイラル 根本/中間/毛先巻き",
+      "⑭ステップ4-C ストレートパーマアイロンワーク"]
+  },
+  mens:{
+    title:"メンズカリキュラム",
+    steps:["①ステップ1 メンズシャンプー","②ステップ2 メンズブロー","③ステップ3 フェード・刈り上げ","④ステップ4 メンズパーマ"]
+  },
+  basicCut:{
+    title:"基礎カットカリキュラム（Jr.ベーシック）",
+    steps:["①ステップ1 ワンレングス","②ステップ2 マッシュルーム","③ステップ3 グラデーション","③ステップ3-A セイムレイヤー"]
+  },
+  harenohi:{
+    title:"晴れの日カリキュラム表",
+    steps:["⑮ステップ5-A 巻き髪ダウンスタイル","⑮ステップ5-B ハーフアップスタイル",
+      "⑮ステップ5-C アップスタイル","⑮ステップ5-D 日本髪",
+      "⑮ステップ6-A 浴衣着付け","⑮ステップ5-B 七五三着付け",
+      "⑮ステップ5-B 袴着付け","⑮ステップ5-D 留袖着付け","⑮ステップ5-D 振袖着付け"]
+  }
+};
+
+const QA_DATA = {
+  "評価期間はいつですか？": "評価期間は四半期ごとです。1Q（4月5月6月）、2Q（7月8月9月）、3Q（10月11月12月）、4Q（1月2月3月）です。査定は年2回で、1Q・2Qの平均点で半期査定、3Q・4Qの平均点で半期査定のサイクルです。",
+  "昇格の条件は？": "昇格には組織適応力（姿勢のルール順守）を満たしており、等級基準を満たしていることが必要です。累計ポイント獲得済みでも面談クリア出来なければ昇進は保留となります。その場合、元の給与テーブルのままで、累計獲得ポイントは変わりません。",
+  "飛び級のルールは？": "基準未満であっても上位役職に任命された場合、当該役職の最低ランクまで飛び級によるランク変更を行います。役職が外れても降格基準に満たない場合は、役職が外れる前の給与額のまま移動となります。ただし役職手当はなくなります。",
+  "正社員の基準給与は？": "S1（Jr.assistant）：210,000円、S2（main assistant）：220,000円、S3（Jr.stylist）：230,000円、S4（main stylist）：240,000円です。これは基本給で、インセンティブは別です。",
+  "変動ピッチとは？": "評価点に応じて給与が上下する仕組みです。60点が基準（変動なし）で、90〜100点なら+4ピッチ、0〜29点なら-4ピッチです。正社員は1ピッチ＝1,000円、パートは1ピッチ＝10円です。小数点以下切り捨て。",
+  "パートの時給の違いは？": "週の出勤日数によって基準時給が異なります。例：S1の場合、週1＝1,100円、週2＝1,125円、週3＝1,150円、週4＝1,175円、週5＝1,200円。出勤日数が多いほど基準時給が高くなります。",
+  "賞与の計算方法は？": "賞与は等級と評価点をマトリックスにしたポイント方式で計算されます。①等級ごとの評価係数を決定→②人数をプロット→③ポイント算出（①×②）→④賞与原資の決定→⑤ポイント単価算出→⑥各人の賞与額算出の流れです。",
+  "給与テーブルのルールは？": "等級が上がった場合は、上がった等級でのレンジで本人が損しない金額からスタートします。各テーブルには役職手当を含んだ表記になっています。役職が外れた場合でかつ降格基準に接触していない場合は役職手当は外れます。"
+};
+
+// ============================================================
+// APP STATE
+// ============================================================
+let openSections = {};
+
+function toggle(id) {
+  openSections[id] = !openSections[id];
+  render();
+}
+
+function isOpen(id) {
+  return !!openSections[id];
+}
+
+// ============================================================
+// RENDER HELPERS
+// ============================================================
+function esc(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
+}
+
+function renderSection(id, title, contentHtml, defaultOpen) {
+  if (defaultOpen && openSections[id] === undefined) openSections[id] = true;
+  const open = isOpen(id);
+  return `<div class="section">
+    <div class="box box-title" onclick="toggle('${id}')">
+      <span>${esc(title)}</span>
+      <span style="font-size:12px">${open ? "▲" : "▼"}</span>
+    </div>
+    <div class="box-content" style="display:${open?'block':'none'}">${contentHtml}</div>
+  </div>`;
+}
+
+function renderGrade(key, data) {
+  let duties = data.duties.map(d => `<div style="padding:2px 0;border-bottom:1px solid #eee">・${esc(d)}</div>`).join("");
+  return `<div class="grade-box">
+    <h4>${esc(key)}</h4>
+    <div><span class="label">責務:</span> ${esc(data.responsibility)}</div>
+    <div><span class="label">昇格条件:</span> ${esc(data.promotion)}</div>
+    <div style="margin-top:6px"><span class="label">職務内容:</span></div>
+    ${duties}
+  </div>`;
+}
+
+function renderCurriculum(steps) {
+  return steps.map(s => `<div class="curriculum-step">${esc(s)}</div>`).join("");
+}
+
+// ============================================================
+// Q&A LOGIC
+// ============================================================
+let qaAnswer = "";
+let qaHistory = [];
+
+function askQA() {
+  const input = document.getElementById("qa-input");
+  const q = input.value.trim();
+  if (!q) return;
+  
+  // Search in QA_DATA
+  let bestMatch = null;
+  let bestScore = 0;
+  
+  for (const [question, answer] of Object.entries(QA_DATA)) {
+    let score = 0;
+    const qLower = q.toLowerCase();
+    const keyLower = question.toLowerCase();
+    
+    // Exact keyword matching
+    const keywords = qLower.split(/[\s、。？?]+/).filter(w => w.length > 1);
+    keywords.forEach(kw => {
+      if (keyLower.includes(kw)) score += 3;
+      if (answer.toLowerCase().includes(kw)) score += 1;
+    });
+    
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = { question, answer };
+    }
+  }
+  
+  if (bestMatch && bestScore >= 2) {
+    qaAnswer = `<strong>Q: ${esc(bestMatch.question)}</strong><br><br>${esc(bestMatch.answer)}`;
+  } else {
+    qaAnswer = `申し訳ありません。「${esc(q)}」に対する回答がデータベースにありません。管理者にお問い合わせください。`;
+  }
+  
+  input.value = "";
+  render();
+}
+
+function showQA(question) {
+  qaAnswer = `<strong>Q: ${esc(question)}</strong><br><br>${esc(QA_DATA[question])}`;
+  render();
+}
+
+// ============================================================
+// SPREADSHEET SECTION
+// ============================================================
+const SS_PW = "capecuri2026";
+let ssUnlocked = false;
+let ssCurrentSheet = 0;
+let ssPhotoStore = {};
+
+function ssLogin() {
+  const input = document.getElementById("ss-pw");
+  if (input.value === SS_PW) {
+    ssUnlocked = true;
+    try {
+      const saved = localStorage.getItem("caberito_photos");
+      if (saved) ssPhotoStore = JSON.parse(saved);
+    } catch(e) {}
+    render();
+  } else {
+    document.getElementById("ss-error").style.display = "block";
+    input.value = "";
+    input.focus();
+  }
+}
+
+function ssSelectSheet(i) {
+  ssCurrentSheet = i;
+  render();
+}
+
+function ssSave() {
+  try {
+    localStorage.setItem("caberito_photos", JSON.stringify(ssPhotoStore));
+    alert("保存しました");
+  } catch(e) {
+    alert("保存に失敗しました");
+  }
+}
+
+function ssHandlePhoto(key, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement("canvas");
+      let w = img.width, h = img.height;
+      if (w > 400) { h = h * 400 / w; w = 400; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      ssPhotoStore[key] = canvas.toDataURL("image/jpeg", 0.6);
+      render();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Spreadsheet data - core sheets from the Excel
+const SS_SHEETS = {
+  "評価ルール": [
+    ["項目","内容"],
+    ["評価期間","四半期ごと。1Q(4-6月) 2Q(7-9月) 3Q(10-12月) 4Q(1-3月)"],
+    ["査定サイクル","年2回。1Q・2Q平均で半期査定、3Q・4Q平均で半期査定"],
+    ["昇格条件","累計4ポイント獲得 + 課長面談クリア"],
+    ["降格条件","累計4ポイントマイナス"],
+    ["飛び級","上位役職任命時、当該役職の最低ランクまでランク変更"],
+    ["変動ピッチ（正社員）","1ピッチ = 1,000円"],
+    ["変動ピッチ（パート）","1ピッチ = 10円"],
+    ["基準点","60点（変動なし）"],
+    ["90〜100点","+4ピッチ"],
+    ["80〜89点","+3ピッチ"],
+    ["70〜79点","+2ピッチ"],
+    ["60〜69点","±0"],
+    ["50〜59点","-1ピッチ"],
+    ["40〜49点","-2ピッチ"],
+    ["30〜39点","-3ピッチ"],
+    ["0〜29点","-4ピッチ"]
+  ],
+  "正社員給与": [
+    ["等級","役職","基本給"],
+    ["S1","Jr.アシスタント","210,000円"],
+    ["S2","メインアシスタント","220,000円"],
+    ["S3","Jr.スタイリスト","230,000円"],
+    ["S4","メインスタイリスト","240,000円"],
+    ["S5","店長","260,000円〜"]
+  ],
+  "パート時給": [
+    ["等級","週1","週2","週3","週4","週5"],
+    ["S1 Jr.アシスタント","1,100円","1,125円","1,150円","1,175円","1,200円"],
+    ["S2 メインアシスタント","1,150円","1,175円","1,200円","1,225円","1,250円"],
+    ["S3 Jr.スタイリスト","1,200円","1,225円","1,250円","1,275円","1,300円"],
+    ["S4 メインスタイリスト","1,250円","1,275円","1,300円","1,325円","1,350円"]
+  ],
+  "S1 Jr.アシスタント役割": [
+    ["項目","内容"],
+    ["等級","S1"],
+    ["役職","Jr.アシスタント"],
+    ["格","一般格"],
+    ["責務","指示業務の実行"],
+    ["昇格","累計4ポイント獲得でS2に昇格"],
+    ["職務1","上司の指示を受け、確認しながら定型業務をこなす"],
+    ["職務2","報告・連絡・相談を適宜行える"],
+    ["職務3","業務に必要な基礎知識の習得に努める"]
+  ],
+  "S2 メインアシスタント役割": [
+    ["項目","内容"],
+    ["等級","S2"],
+    ["役職","メインアシスタント"],
+    ["格","一般格"],
+    ["責務","アシスタント業務が一人前"],
+    ["昇格","累計4ポイント獲得でS3に昇格"],
+    ["職務1","アシスタント業務は責任を持ち行うことが出来る"],
+    ["職務2","困難な例外事項は、上司・先輩のサポートを受けながら処理出来る"],
+    ["職務3","自ら課題を発見し、上司の支援を受けながら改善・解決出来る"],
+    ["職務4","個人目標に対する数字を常に把握し意識している"]
+  ],
+  "S3 Jr.スタイリスト役割": [
+    ["項目","内容"],
+    ["等級","S3"],
+    ["役職","Jr.スタイリスト"],
+    ["格","一般格"],
+    ["責務","メインスタイリストをアシストし、高校生までのカットに入客"],
+    ["昇格","累計4ポイント獲得で昇格"],
+    ["職務1","アシスタント業務の遂行"],
+    ["職務2","アシスト業務が潤滑に行われているかの管理ができる"],
+    ["職務3","売上・個人目標に対する数字を常に把握し意識している"],
+    ["職務4","アシスタントへのアドバイスが出来る"]
+  ],
+  "S4 メインスタイリスト役割": [
+    ["項目","内容"],
+    ["等級","S4"],
+    ["役職","メインスタイリスト"],
+    ["格","一般格"],
+    ["責務","店舗、個人両方の売り上げ目標を達成する"],
+    ["昇格","累計4ポイント獲得で昇格 / 累計4ポイントマイナスで降格"],
+    ["職務1","店舗の目標達成に向けて、的確なメンバーの指導とプロセス管理が出来る"],
+    ["職務2","担当しているお客様をアシスタントに任せる際に適切な説明、指示ができる"],
+    ["職務3","担当のお客様にプラスメニューの提案ホームケア商品のおすすめの徹底できる"],
+    ["職務4","インナーフォルムアートの技法をマスターしお客様から説明、理解を得る"],
+    ["職務5","担当アシスタント業務について安心して任せることが出来る"],
+    ["職務6","例外事項に臨機応変な対応が出来る"],
+    ["職務7","担当業務の課題を発見し、改善に向けた具体案の提案が出来る"],
+    ["職務8","売上・個人目標に対する数字を常に把握し意識している"]
+  ],
+  "S5 店長役割": [
+    ["項目","内容"],
+    ["等級","S5"],
+    ["役職","店長"],
+    ["格","管理職格"],
+    ["責務","店舗運営責任を負う管理者"],
+    ["昇格","累計4ポイント獲得で昇格 / 累計4ポイントマイナスで降格"],
+    ["職務1","店舗予算の把握、目標達成への指導が出来る"],
+    ["職務2","店舗の部下育成指導が出来る"],
+    ["職務3","担当店舗において問題等の対処・改善・業務の質を向上できる"],
+    ["職務4","担当店舗のコスト管理が出来る"],
+    ["職務5","コンプライアンスの把握・指導・徹底が出来る"]
+  ],
+  "レディースカリキュラム": [
+    ["ステップ","内容"],
+    ["①","シャンプー＆ブロー"],
+    ["②","カラー塗布"],
+    ["③","アイロンセット 巻き髪・ストレート"],
+    ["③-A","グレイカラー、ヘナ"],
+    ["③-B","ファッションカラー ノンジアミンカラー"],
+    ["⑩-C","ホイルワーク メッシュ・ウィービング・スライシング"],
+    ["⑪-D","ブリーチワーク"],
+    ["⑬-4A","オールパーパス ビッグロット〜豆ロット"],
+    ["⑭-4B","スパイラル 根本/中間/毛先巻き"],
+    ["⑭-4C","ストレートパーマアイロンワーク"]
+  ],
+  "メンズカリキュラム": [
+    ["ステップ","内容"],
+    ["①","メンズシャンプー"],
+    ["②","メンズブロー"],
+    ["③","フェード・刈り上げ"],
+    ["④","メンズパーマ"]
+  ],
+  "基礎カット": [
+    ["ステップ","内容"],
+    ["①","ワンレングス"],
+    ["②","マッシュルーム"],
+    ["③","グラデーション"],
+    ["③-A","セイムレイヤー"]
+  ],
+  "晴れの日カリキュラム": [
+    ["ステップ","内容"],
+    ["⑮-5A","巻き髪ダウンスタイル"],
+    ["⑮-5B","ハーフアップスタイル"],
+    ["⑮-5C","アップスタイル"],
+    ["⑮-5D","日本髪"],
+    ["⑮-6A","浴衣着付け"],
+    ["⑮-5B","七五三着付け"],
+    ["⑮-5B","袴着付け"],
+    ["⑮-5D","留袖着付け"],
+    ["⑮-5D","振袖着付け"]
+  ],
+  "賞与計算": [
+    ["手順","内容"],
+    ["①","等級ごとの評価係数を決定"],
+    ["②","人数をプロット"],
+    ["③","ポイント算出（①×②）"],
+    ["④","賞与原資の決定"],
+    ["⑤","ポイント単価算出"],
+    ["⑥","各人の賞与額算出"]
+  ],
+  "組織適応力チェック": [
+    ["項目","基準"],
+    ["姿勢のルール","制服・身だしなみの遵守"],
+    ["挨拶","お客様・スタッフへの適切な挨拶"],
+    ["報連相","上司への適時報告・連絡・相談"],
+    ["時間管理","遅刻・早退がない"],
+    ["協調性","チームワークを意識した行動"]
+  ],
+  "レディースカット写真": [
+    ["スタイル名","前","後","右","左"],
+    ["ワンレングス","（写真）","（写真）","（写真）","（写真）"],
+    ["グラデーション","（写真）","（写真）","（写真）","（写真）"],
+    ["レイヤー","（写真）","（写真）","（写真）","（写真）"],
+    ["ボブ","（写真）","（写真）","（写真）","（写真）"],
+    ["ショート","（写真）","（写真）","（写真）","（写真）"]
+  ],
+  "メンズカット写真": [
+    ["スタイル名","前","後","右","左"],
+    ["ベリーショート","（写真）","（写真）","（写真）","（写真）"],
+    ["ショート","（写真）","（写真）","（写真）","（写真）"],
+    ["フェード","（写真）","（写真）","（写真）","（写真）"],
+    ["ツーブロック","（写真）","（写真）","（写真）","（写真）"]
+  ]
+};
+
+const SS_SHEET_NAMES = Object.keys(SS_SHEETS);
+
+function renderSpreadsheet() {
+  if (!ssUnlocked) {
+    return `<div class="ss-login">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px">人事評価制度シート（Excel閲覧）</div>
+      <div style="font-size:11px;color:#666;margin-bottom:16px">パスワードを入力してスプレッドシートを開く</div>
+      <div>
+        <input type="password" id="ss-pw" placeholder="パスワード" onkeydown="if(event.key==='Enter')ssLogin()">
+        <button onclick="ssLogin()">開く</button>
+      </div>
+      <div class="ss-error" id="ss-error">パスワードが正しくありません</div>
+    </div>`;
+  }
+  
+  const sheetName = SS_SHEET_NAMES[ssCurrentSheet];
+  const rows = SS_SHEETS[sheetName];
+  const isPhotoSheet = sheetName.includes("写真");
+  
+  let tabs = SS_SHEET_NAMES.map((n, i) => 
+    `<div class="ss-tab${i===ssCurrentSheet?' active':''}" onclick="ssSelectSheet(${i})">${esc(n)}</div>`
+  ).join("");
+  
+  let tableRows = "";
+  rows.forEach((row, ri) => {
+    let cells = row.map((cell, ci) => {
+      if (isPhotoSheet && ri > 0 && ci > 0) {
+        const photoKey = `${sheetName}_${ri}_${ci}`;
+        const hasPhoto = ssPhotoStore[photoKey];
+        return `<td><div class="photo-cell">
+          ${hasPhoto ? `<img src="${ssPhotoStore[photoKey]}">` : '<span class="ph-label">クリックして写真貼付</span>'}
+          <input type="file" accept="image/*" onchange="ssHandlePhoto('${photoKey}', this)">
+        </div></td>`;
+      }
+      const tag = ri === 0 ? "th" : "td";
+      return `<${tag}>${esc(cell)}</${tag}>`;
+    }).join("");
+    tableRows += `<tr>${cells}</tr>`;
+  });
+  
+  return `<div class="ss-tabs">${tabs}</div>
+    <div class="ss-table-wrap">
+      <table class="ss-table"><tbody>${tableRows}</tbody></table>
+    </div>
+    <div class="save-bar">
+      <span style="font-size:12px">写真の保存・書き出し</span>
+      <div>
+        <button onclick="ssSave()">保存する</button>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// MAIN RENDER
+// ============================================================
+function render() {
+  const app = document.getElementById("app");
+  
+  // Left column: evaluation + salary
+  let gradesHtml = Object.entries(GRADES).map(([k,v]) => renderGrade(k,v)).join("");
+  
+  let salaryRegHtml = `<table class="salary-table">
+    <tr><th>等級</th><th>基本給</th></tr>
+    ${SALARY_REGULAR.rows.map(r => `<tr><td>${esc(r.grade)}</td><td>${esc(r.base)}</td></tr>`).join("")}
+  </table><div style="font-size:10px;color:#666;margin-top:4px">${esc(SALARY_REGULAR.note)}</div>`;
+  
+  let salaryPartHtml = `<table class="salary-table">
+    <tr>${SALARY_PART.headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr>
+    ${SALARY_PART.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}
+  </table><div style="font-size:10px;color:#666;margin-top:4px">${esc(SALARY_PART.note)}</div>`;
+  
+  let pitchHtml = `<table class="salary-table">
+    <tr><th>評価点</th><th>ピッチ</th></tr>
+    ${PITCH_TABLE.rows.map(r => `<tr><td>${esc(r.range)}</td><td>${esc(r.pitch)}</td></tr>`).join("")}
+  </table><div style="font-size:10px;color:#666;margin-top:4px">${esc(PITCH_TABLE.note)}</div>`;
+  
+  // Curricula
+  let currHtml = Object.entries(CURRICULA).map(([k,v]) => 
+    renderSection("curr_"+k, v.title, renderCurriculum(v.steps))
+  ).join("");
+  
+  // Q&A
+  let qaListHtml = Object.keys(QA_DATA).map(q => 
+    `<div class="qa-q" onclick="showQA('${q.replace(/'/g,"\\'")}')"><span>${esc(q)}</span><span>→</span></div>`
+  ).join("");
+  
+  let qaHtml = `<div class="qa-section">
+    <div class="qa-input-wrap">
+      <input class="qa-input" id="qa-input" placeholder="質問を入力してください..." onkeydown="if(event.key==='Enter')askQA()">
+      <button class="qa-btn" onclick="askQA()">質問</button>
+    </div>
+    ${qaAnswer ? `<div class="qa-answer">${qaAnswer}</div>` : ""}
+    <div style="margin-top:12px;font-size:11px;color:#666">よくある質問:</div>
+    ${qaListHtml}
+  </div>`;
+  
+  // Spreadsheet
+  let ssHtml = renderSpreadsheet();
+  
+  // Assembly
+  app.innerHTML = `
+    <div class="grid">
+      <div>
+        ${renderSection("eval", "評価制度・役割定義", gradesHtml, false)}
+        ${renderSection("salary_reg", "正社員 給与テーブル", salaryRegHtml, false)}
+        ${renderSection("salary_part", "パート 時給テーブル", salaryPartHtml, false)}
+        ${renderSection("pitch", "変動ピッチ表", pitchHtml, false)}
+      </div>
+      <div>
+        ${currHtml}
+        ${renderSection("qa", "Q&A（会社ルール）", qaHtml, false)}
+      </div>
+    </div>
+    <div class="full-width" style="margin-top:12px">
+      ${renderSection("spreadsheet", "人事評価制度シート（Excel閲覧）", ssHtml, false)}
+    </div>
+  `;
+}
+
+// Initial render
+render();
+</script>
+</body>
+</html>
